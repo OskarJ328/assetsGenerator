@@ -50,8 +50,8 @@ void MainWindow::setMapMaxSize(int width, int height){
 
 void MainWindow::tilesComboBoxInit(){
     tiles = {
-        {"FLOOR", ":/tiles/tilesImages/floor.png", TILE_FLOOR},
-        {"WALL", ":/tiles/tilesImages/wall.png", TILE_WALL}
+        {"FLOOR", ":/tiles/tilesImages/floor.png"},
+        {"WALL", ":/tiles/tilesImages/wall.png"}
     };
     ui->comboBox_chooseTile->clear();
     for(const auto &tile : tiles){
@@ -72,6 +72,7 @@ void MainWindow::connectsInit(){
     connect(ui->pushButton_generateFont, &QPushButton::clicked, this, &MainWindow::generateFontArray);
 
     connect(ui->pushButton_confirmMapParams, &QPushButton::clicked, this, &MainWindow::confirmMapParams);
+    connect(ui->pushButton_generateMap, &QPushButton::clicked, this, &MainWindow::generateMapArray);
 }
 
 void MainWindow::namesInit(){
@@ -236,10 +237,19 @@ void MainWindow::convertToRGB565(){
 }
 
 void MainWindow::generateRGB565Array(){
+    QString fileName = ui->textEditArrayNameVal->toPlainText();
+    if(fileName.isEmpty()){
+        QMessageBox::critical(
+            this,
+            "Error",
+            "The sprite name can not be empty!\n"
+            "Please enter a sprite name"
+            );
+        return;
+    }
     QString folder = QFileDialog::getExistingDirectory(this, "Choose Directory to save");
     if(!folder.isEmpty()){
         convertToRGB565();
-        QString fileName = ui->textEditArrayNameVal->toPlainText();
         QString imageFilePath = folder + "/" + fileName + ".c";
         QString structName = fileName + QString::number(NewImage.width()) + "x" + QString::number(NewImage.height());
         QString arrayName = structName + "_buffer";
@@ -327,9 +337,18 @@ void MainWindow::showFontImage(){
 }
 
 void MainWindow::generateFontArray(){
+    QString fileName = ui->textEdit_enterFontName->toPlainText();
+    if(fileName.isEmpty()){
+        QMessageBox::critical(
+            this,
+            "Error",
+            "The font name can not be empty!\n"
+            "Please enter a font name"
+            );
+        return;
+    }
     QString folder = QFileDialog::getExistingDirectory(this, "Choose Directory to save");
     if(!folder.isEmpty()){
-        QString fileName = ui->textEdit_enterFontName->toPlainText();
         QString cleanName = fileName;
         cleanName.replace(" ", "_");
         QString filePath = folder + "/" + fileName + ".c";
@@ -396,7 +415,7 @@ void MainWindow::createMap(){
     }
     for(int y = 0; y < mapHeight; y++){
         for(int x = 0; x < mapWidth; x++){
-            map[x][y] = TILE_FLOOR;
+            map[x][y] = "FLOOR";
 
             QPushButton *button = new QPushButton;
             button->setFixedSize(32,32);
@@ -409,7 +428,7 @@ void MainWindow::createMap(){
             button->setFlat(true);
             connect(button, &QPushButton::clicked, this, [=](){
                 int tileIdx = ui->comboBox_chooseTile->currentIndex();
-                map[x][y] = tiles[tileIdx].tile;
+                map[x][y] = tiles[tileIdx].text;
                 qDebug() << map[x][y];
                 button->setIcon(QIcon(tiles[tileIdx].imagePath));
                 button->setIconSize(QSize(32,32));
@@ -435,7 +454,62 @@ void MainWindow::confirmMapParams(){
         ui->widget_mapContainer->setFixedSize(
             mapWidth * 32,
             mapHeight * 32
+        );
+    }
+}
+
+void MainWindow::generateMapArray(){
+    if(tileSize == 0){
+        tileSize = ui->spinBox_tileSize_pxl->value();
+        if(tileSize == 0){
+            QMessageBox::critical(
+                this,
+                "Error",
+                "Tile size must me greater than 0"
             );
+            return;
+        }
+    }
+
+    QString fileName = ui->lineEdit_mapName->text();
+    if(fileName.isEmpty()){
+        QMessageBox::critical(
+            this,
+            "Error",
+            "The map name can not be empty!\n"
+            "Please enter a map name"
+            );
+        return;
+    }
+    QString folder = QFileDialog::getExistingDirectory(this, "Choose Directory to save");
+    if(!folder.isEmpty()){
+        QString cleanName = fileName;
+        cleanName.replace(" ", "_");
+        QString filePath = folder + "/" + fileName + ".c";
+        QString structName = cleanName + QString::number(mapWidth) + "x" + QString::number(mapHeight);
+        QString bufferName = structName + "_buffer";
+
+        QFile file(filePath);
+        if(!file.open(QIODevice::WriteOnly | QIODevice::Text)){
+            QMessageBox::warning(this, "Error", "Failed at opening file");
+            return;
+        }
+        QTextStream out(&file);
+        out << "static const TileID " << bufferName << "[] =\n{\n";
+        for(int y = 0; y < mapHeight; y++){
+            for(int x = 0; x < mapWidth; x++){
+                out << "TILE_" << map[x][y];
+                if((y != mapHeight - 1) || (x != mapWidth - 1)){
+                    out << ",";
+                }
+            }
+            out << "\n";
+        }
+        out << "};\n";
+        out << "static const map_t " << structName <<   " = {.size_tiles.width = " << mapWidth <<
+                                                        ", .size_tiles.height = " << mapHeight <<
+                                                        ", .tileSize_pixels = " << tileSize <<
+                                                        ", .tileIds = " << bufferName << "};";
     }
 }
 

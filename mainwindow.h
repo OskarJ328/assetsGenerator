@@ -42,7 +42,7 @@ private:
 
     QGridLayout *mapLayout = nullptr;
     QVector<tile_t> tiles;
-    QVector<QVector<TileType>> map;
+    QVector<QVector<QString>> map;
     int mapWidth = 0;
     int mapHeight = 0;
     int tileSize;
@@ -76,5 +76,6 @@ private:
     void getCurrentTile();
     void createMap();
     void confirmMapParams();
+    void generateMapArray();
 };
 #endif // MAINWINDOW_H
