@@ -275,7 +275,7 @@ void MainWindow::generateRGB565Array(){
             }
         }
         out << "\n};\n";
-        out << "sprite_t " << structName
+        out << "const sprite_t " << structName
             << " = {.data = " << arrayName
             << ", .size.width = "    << NewImage.width()
             << ", .size.height = "   << NewImage.height()
