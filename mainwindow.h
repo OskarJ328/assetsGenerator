@@ -33,6 +33,7 @@ private:
     int NewImageWidth;
     int NewImageHeight;
     QVector<uint16_t> RGB565;
+    QVector<uint32_t> alphaMask;
 
 
     QString fontFilePath;

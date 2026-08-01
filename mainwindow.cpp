@@ -15,6 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , font()
     , fontMetrics(font)
+    , alphaMask(32)
 {
     ui->setupUi(this);
 
@@ -197,15 +198,14 @@ void MainWindow::generateNewImage(){
         Qt::KeepAspectRatio,
         Qt::SmoothTransformation
     );
-
     QPixmap pixmap = QPixmap::fromImage(NewImage);
     ui->labelPodgladPoPrzeskalowaniu->setPixmap(
         pixmap.scaled(
             ui->labelPodgladPoPrzeskalowaniu->size(),
             Qt::KeepAspectRatio,
             Qt::SmoothTransformation
-            )
-        );
+        )
+    );
 
 }
 
@@ -224,15 +224,25 @@ void MainWindow::saveNewImage(){
 }
 
 void MainWindow::convertToRGB565(){
+    RGB565.clear();
+    alphaMask.fill(0);
     for(int y = 0; y < NewImage.height(); y++){
         for(int x = 0; x < NewImage.width(); x++){
             QColor color = NewImage.pixelColor(x, y);
+            if(NewImage.hasAlphaChannel()){
+                if(color.alpha() > 127){
+                    alphaMask[y] |= 1 << (31 - x);
+                }else{
+                    alphaMask[y] &= ~(1 << (31 - x));
+                }
+            }
             int r = color.red();
             int g = color.green();
             int b = color.blue();
             uint16_t rgb565_pixel = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
             RGB565.append(rgb565_pixel);
         }
+        qDebug() << alphaMask[y];
     }
 }
 
@@ -253,6 +263,7 @@ void MainWindow::generateRGB565Array(){
         QString imageFilePath = folder + "/" + fileName + ".c";
         QString structName = fileName + QString::number(NewImage.width()) + "x" + QString::number(NewImage.height());
         QString arrayName = structName + "_buffer";
+        QString maskName = structName + "_mask";
         qDebug() <<imageFilePath;
         QFile file(imageFilePath);
         if(!file.open(QIODevice::WriteOnly | QIODevice::Text)){
@@ -274,12 +285,30 @@ void MainWindow::generateRGB565Array(){
                 out << "\n";
             }
         }
-        out << "\n};\n";
-        out << "const sprite_t " << structName
+        out << "};\n";
+
+        if(NewImage.hasAlphaChannel()){
+            out << "static const uint32_t " << maskName << "[] = \n{\n";
+            for(int i = 0; i < NewImageHeight; i++){
+                QString value = QString("0b%1").arg(alphaMask[i], 32, 2, QLatin1Char('0')).toUpper();
+                out << value;
+                if(i != alphaMask.size() - 1){
+                    out <<  ", ";
+                }
+                out << "\n";
+            }
+            out << "};\n";
+        }
+
+
+        out << "static const sprite_t " << structName
             << " = {.data = " << arrayName
             << ", .size.width = "    << NewImage.width()
-            << ", .size.height = "   << NewImage.height()
-            << "};";
+            << ", .size.height = "   << NewImage.height();
+        if(NewImage.hasAlphaChannel()){
+            out << ", .mask = " << maskName;
+        }
+        out << "};";
     }
 }
 
